@@ -1,0 +1,10 @@
+Net::DNS
+IO::Socket::SSL
+DBI
+DBD::Pg
+JSON
+LWP
+Net::XMPP
+Net::SSH2
+Data::Dumper
+IPC::ConcurrencyLimit
