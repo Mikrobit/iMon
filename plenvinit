@@ -1,0 +1,9 @@
+#!/usr/local/bin/bash
+
+export PATH="$HOME/.plenv/bin:/usr/local/bin:$PATH"
+eval "$(plenv init -)"
+
+cd ~/bin
+
+exec $*
+
