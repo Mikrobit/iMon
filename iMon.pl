@@ -391,12 +391,10 @@ sub LogPushbullet {
         $ua->credentials( 'api.pushbullet.com:443', 'Pushbullet', $token => '' );
         my $response = $ua->post(
             'https://api.pushbullet.com/v2/pushes', [
-
-                device_iden => $conf->{'pushbullet_dev'},
+                #device_iden => $conf->{'pushbullet_dev'},
                 'type'      => 'note',
                 title       => $srv->{'name'} . " requires attention",
                 body        => $srv->{'status'},
-
             ]
         );
 
