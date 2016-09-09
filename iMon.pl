@@ -2,6 +2,7 @@
 
 use 5.020;
 use warnings;
+use local::lib;
 
 use Carp;
 use DBI;
@@ -284,7 +285,8 @@ sub Log {
     LogSQL  ( $service, $srv );
     #LogPushover ( $service, $srv );
     #LogXMPP ( $service, $srv );
-    LogPushbullet ( $service, $srv );
+    LogSlack( $service, $srv );
+    #LogPushbullet ( $service, $srv );
 
     return;
 }
@@ -292,13 +294,25 @@ sub Log {
 sub LogSQL {
     my ( $service, $srv ) = @_;
 
+    my $logQuery = 'UPDATE server SET "lastCheck" = now() WHERE hostname = ? AND ip = ?';
+    my $s = $dbh->prepare( $logQuery );
+    $s->execute( $srv->{'hostname'}, $srv->{'ip'} );
+
     unless ( $srv->{'up'} ) {
-        my $logQuery = "INSERT INTO log (ip,name,service,port,status,time) VALUES (?,?,?,?,?,now())";
-        my $s = $dbh->prepare( $logQuery );
+        $logQuery = "INSERT INTO log (ip,name,service,port,status,time) VALUES (?,?,?,?,?,now())";
+        $s = $dbh->prepare( $logQuery );
         $s->execute( $srv->{'ip'}, $srv->{'name'}, $service, $srv->{'port'}, $srv->{'status'} ) or croak $dbh->errstr;
+
+        $logQuery = 'UPDATE server SET "lastDown" = now() WHERE hostname = ? AND ip = ?';
+        $s = $dbh->prepare( $logQuery );
+        $s->execute( $srv->{'hostname'}, $srv->{'ip'} );
+
+        return;
     }
 
-    return;
+    $logQuery = 'UPDATE server SET "lastUp" = now() WHERE hostname = ? AND ip = ?';
+    $s = $dbh->prepare( $logQuery );
+    $s->execute( $srv->{'hostname'}, $srv->{'ip'} );
 }
 
 sub LogXMPP {
@@ -393,7 +407,7 @@ sub LogPushbullet {
             'https://api.pushbullet.com/v2/pushes', [
                 #device_iden => $conf->{'pushbullet_dev'},
                 'type'      => 'note',
-                title       => $srv->{'name'} . " requires attention",
+                title       => $srv->{'name'} . " requires attention!",
                 body        => $srv->{'status'},
             ]
         );
@@ -407,6 +421,28 @@ sub LogPushbullet {
     return;
 }
 
+sub LogSlack {
+    my ( $service, $srv ) = @_;
+
+    my $d = DateTime->now();
+    my $url = $conf->{'slack_webhook'};
+
+    if ( !$srv->{'up'} || $conf->{'debug'} ) {
+        my $payload = {
+            username    => 'iMon',
+            text        => '*' . $srv->{'name'} . "* requires attention!\n" . $srv->{'status'},
+        };
+        my $ua = LWP::UserAgent->new();
+        my $response = $ua->post( $url, Content => encode_json($payload) );
+
+        unless( $response->is_success ) {
+            say "Risposta da Slack: " . $response->status_line;
+        }
+
+    }
+
+    return;
+}
 
 sub get_config {
     my $config_file = shift;
